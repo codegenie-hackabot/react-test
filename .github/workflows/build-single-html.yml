@@ -1,43 +1,48 @@
-name: Build React to Single HTML
+name: Build React App and Commit to site folder
 
-# Trigger on pushes to the main branch and allow manual dispatch
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-and-inline:
+  build-and-commit:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the repository
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed to commit
 
-      # 2. Set up Node.js (adjust version as needed)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3. Install dependencies – package-lock.json will be generated
       - name: Install dependencies
         run: npm install
 
-      # 4. Build the React app (assumes "build" script in package.json)
       - name: Build
         run: npm run build
 
-      # 5. Inline all external CSS and JS into a single HTML file
-      #    The tool "html-inline" processes build/index.html and embeds
-      #    all referenced scripts and stylesheets directly into the HTML.
-      - name: Inline assets
-        run: npx html-inline -i build/index.html -o build/index-inlined.html
+      - name: Prepare site folder
+        run: |
+          # Remove existing site folder (if any) and create fresh
+          rm -rf site
+          mkdir -p site
+          # Copy build output to site folder
+          cp -r build/* site/
 
-      # 6. Upload the resulting single HTML file as an artifact
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-single-html
-          path: build/index-inlined.html
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add site/
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update site folder [skip ci]"
+            git push
+          fi
