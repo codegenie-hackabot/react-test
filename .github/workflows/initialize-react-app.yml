@@ -1,16 +1,20 @@
 name: Initialize React App
+
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:        # allows manual trigger
+  workflow_dispatch:
+
 permissions:
-  contents: write           # needed to push changes back
+  contents: write
+
 jobs:
   init-react:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Check if package.json exists
         id: check_package
         run: |
@@ -19,16 +23,25 @@ jobs:
           else
             echo "package_exists=false" >> $GITHUB_OUTPUT
           fi
+
       - name: Setup Node.js
         if: steps.check_package.outputs.package_exists == 'false'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Create React App
+
+      - name: Create React App in temporary directory
         if: steps.check_package.outputs.package_exists == 'false'
-        run: npx create-react-app . --force --use-npm
-        # --force allows installation even if the directory isn't completely empty
-        # --use-npm forces npm (omit to use the default package manager)
+        run: |
+          # Create the app in a subfolder (skip install to avoid copying node_modules)
+          npx create-react-app temp-app --use-npm --skip-install
+          # Copy all generated files (including hidden ones) to the repository root
+          cp -r temp-app/. .
+          # Remove the temporary folder
+          rm -rf temp-app
+          # Install dependencies directly in the root
+          npm install
+
       - name: Commit and push changes
         if: steps.check_package.outputs.package_exists == 'false'
         run: |
